@@ -1,139 +1,196 @@
-# 🚀 部署指南
+# 🚀 部署指南 - 股票查询 API
 
-## 步骤 1: 上传到 GitHub
+## 方式一：部署到 Railway (推荐) ⭐
 
-### 1.1 登录 GitHub CLI
-
-```bash
-gh auth login
-```
-
-按提示操作：
-1. 选择 **GitHub.com**
-2. 选择 **HTTPS**
-3. 选择 **Login with a web browser**
-4. 复制 One-Time Code
-5. 在浏览器中打开 https://github.com/login/device
-6. 粘贴代码并授权
-7. 回到终端，按 Enter
-
-### 1.2 创建 Git 仓库
+### 步骤 1: 准备 GitHub 仓库
 
 ```bash
 cd /Users/huan/.openclaw/workspace
 
-# 初始化 git
-git init
-git branch -M main
+# 登录 GitHub (如果还没登录)
+gh auth login
 
-# 添加所有文件
-git add -A
-
-# 提交
-git commit -m "Initial commit: Stock query & Super Mario game"
+# 创建仓库并推送
+gh repo create stock-api --public --push
 ```
 
-### 1.3 创建 GitHub 仓库
+### 步骤 2: 部署到 Railway
+
+#### 方法 A: 一键部署
+
+1. 访问 Railway: https://railway.app
+2. 点击 "New Project"
+3. 选择 "Deploy from GitHub repo"
+4. 选择 `stock-api` 仓库
+5. Railway 会自动检测 `railway.toml` 并部署
+
+#### 方法 B: 使用 Railway CLI
 
 ```bash
-# 创建新仓库 (替换 <username> 为你的 GitHub 用户名)
-gh repo create stock-mario-game --public --source=. --remote=origin --push
+# 安装 Railway CLI
+npm install -g @railway/cli
+
+# 登录 Railway
+railway login
+
+# 初始化项目
+railway init
+
+# 关联现有项目
+railway link
+
+# 部署
+railway up
 ```
 
-或者手动创建：
-1. 访问 https://github.com/new
-2. 仓库名：`stock-mario-game`
-3. 选择 **Public**
-4. 点击 **Create repository**
-5. 按页面提示推送代码：
+### 步骤 3: 配置环境变量
 
+在 Railway 项目面板中设置：
+
+| 变量名 | 值 |
+|--------|-----|
+| `MARKETSTACK_API_KEY` | `a3e52a1083788b9f3afa054fe53cda7f` |
+| `PORT` | `8000` |
+
+### 步骤 4: 获取部署 URL
+
+部署完成后，Railway 会分配一个公网 URL，格式类似：
+```
+https://stock-api-production.up.railway.app
+```
+
+访问 `https://你的 URL.up.railway.app/docs` 查看 API 文档
+
+---
+
+## 方式二：部署到其他平台
+
+### Heroku
+
+创建 `Procfile`:
+```
+web: uvicorn main:app --host 0.0.0.0 --port $PORT
+```
+
+部署命令:
 ```bash
-git remote add origin https://github.com/<你的用户名>/stock-mario-game.git
-git push -u origin main
+heroku create stock-api
+git push heroku main
+heroku config:set MARKETSTACK_API_KEY=你的 API Key
+```
+
+### Vercel
+
+创建 `vercel.json`:
+```json
+{
+  "builds": [{
+    "src": "main.py",
+    "use": "@vercel/python"
+  }],
+  "routes": [{
+    "src": "/(.*)",
+    "dest": "main.py"
+  }]
+}
+```
+
+### Docker
+
+创建 `Dockerfile`:
+```dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+EXPOSE 8000
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
 ---
 
-## 步骤 2: 部署到 Railway
+## 测试部署
 
-### 2.1 准备 Railway
+部署完成后，测试 API:
 
-1. 访问 https://railway.app
-2. 点击 **Start a New Project**
-3. 选择 **Deploy from GitHub repo**
-4. 授权 Railway 访问你的 GitHub
-5. 选择 `stock-mario-game` 仓库
+```bash
+# 替换为你的 Railway URL
+BASE_URL="https://你的 URL.up.railway.app"
 
-### 2.2 配置 Railway
+# 测试首页
+curl $BASE_URL/
 
-**注意**: Railway 主要用于部署 Web 服务。这个项目包含：
-- 📊 股票查询 (命令行工具)
-- 🎮 超级玛丽 (桌面游戏)
+# 测试股票查询
+curl $BASE_URL/stock/AAPL
 
-这两个都**不适合**直接部署到 Railway（需要图形界面）。
+# 测试多只股票
+curl "$BASE_URL/stocks?symbols=AAPL,GOOG,MSFT"
 
-### 替代方案 A: 部署为 Web API
-
-如果要部署股票查询为 Web 服务，需要创建 Flask/FastAPI 应用。
-
-### 替代方案 B: 使用 Railway 作为运行环境
-
-创建 `railway.toml`:
-
-```toml
-[build]
-builder = "NIXPACKS"
-
-[deploy]
-startCommand = "python3 stock_marketstack.py AAPL"
-restartPolicyType = "ON_FAILURE"
+# 测试健康检查
+curl $BASE_URL/health
 ```
-
-但这只适合运行脚本，不适合游戏。
 
 ---
 
-## 推荐方案
+## 本地开发
 
-### 对于股票查询工具:
-✅ **GitHub Releases** - 发布可执行版本
-✅ **PyPI** - 发布为 Python 包
-✅ **Railway/Heroku** - 部署为 Web API (需要额外开发)
+```bash
+# 安装依赖
+pip3 install -r requirements.txt
 
-### 对于超级玛丽游戏:
-❌ **不适合云端部署** (需要图形界面)
-✅ **GitHub** - 分享源代码
-✅ **itch.io** - 发布游戏 (打包为桌面应用)
+# 运行开发服务器
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+# 访问 API 文档
+# http://localhost:8000/docs
+```
+
+---
+
+## 故障排除
+
+### 部署失败
+
+1. 检查 `requirements.txt` 是否完整
+2. 确认 `railway.toml` 配置正确
+3. 查看 Railway 部署日志
+
+### API 返回错误
+
+1. 检查 API Key 是否有效
+2. 确认 MarketStack 配额未用完
+3. 检查网络连接
+
+### 端口问题
+
+Railway 使用 `$PORT` 环境变量，确保 `railway.toml` 中正确配置
 
 ---
 
 ## 快速命令汇总
 
 ```bash
-# 1. 登录 GitHub
-gh auth login
-
-# 2. 初始化仓库
-cd /Users/huan/.openclaw/workspace
-git init
-git add -A
-git commit -m "Initial commit"
-
-# 3. 创建并推送
-gh repo create stock-mario-game --public --push
-
-# 4. 后续更新
+# 1. 更新代码
 git add -A
 git commit -m "Update"
 git push
+
+# 2. Railway 重新部署 (自动)
+# Railway 会在 push 后自动部署
+
+# 3. 查看部署日志
+railway logs
+
+# 4. 打开部署 URL
+railway open
 ```
 
 ---
 
-## 需要我帮你做什么？
-
-1. **仅上传 GitHub** - 我可以帮你完成所有 git 命令
-2. **创建 Web 版本** - 把股票查询改成 Web API 再部署
-3. **打包游戏** - 把超级玛丽打包成独立应用
-
-告诉我你的选择！🤖
+**部署成功后，记得更新 README.md 中的在线演示链接！** 🤖
